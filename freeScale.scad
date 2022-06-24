@@ -12,12 +12,12 @@ assert(ord("\U000000") == 32);
  
 /* [General] */
 //Select Primary Edge Scale. scaleM is scale Meters. both will add CM to secondary edge
-Units="scaleM"; //[centimeters, inches, scaleM, both]
+Units="both"; //[centimeters, inches, scaleM, both]
 //Select Primary Edge when Units = both
-Units2="scaleM";//[centimeters, inches, scaleM]
+Units2="centimeters";//[centimeters, inches, scaleM]
 // Length of the Rule. When Units = 'both' and Units2 = "inches", this length is in inches.
 RulerLength=24.2; //[1:50]
-RulerWidth=30; //[20:1:50]
+RulerWidth=50; //[20:1:50]
 //Check Zero at Edge to have the ruler edge at 0
 ZeroAtEdge=true;//[true,false]
 WithHole="yes"; //[yes, no]
@@ -32,24 +32,24 @@ ScalingFactor = (ScaleNum/ScaleDenom>=1)? ScaleDenom/ScaleNum : ScaleNum/ScaleDe
 ScaleTxt = str(ScaleNum,":",ScaleDenom);
 
 /* [Text] */
-RulerText="GI\u272FJOE\u2261";
+RulerText="FreeScale";
 FontSize=10; //[3:.5:14]
 BoldFont="no"; //[yes, no]
 NarrowFont="no"; //[yes, no]
 TextHeight=1; //[-2.6:.1:5]
-TextX=50;
+TextX=80;
 TextY=0; //[-10:.5:10]
 
 /* [Numbers] */
-NumberSize=7; //[1:15]
+NumberSize=5; //[1:15]
 BoldNumbers="no"; //[yes, no]
 NumberHeight=.5; //[-2.6:.1:5]
 NumberOffset=0; //[-2:.5:2]
-ScaleTxtOffset=10; //[-25:.25:25]
-ScaleTxtSize=7; //[1:15]
+ScaleTxtOffset=6; //[-25:.25:25]
+ScaleTxtSize=4; //[1:15]
 
 /* [Ruler lines] */
-UnitsLineWidth=.5; //[.3:.05:.7]
+UnitsLineWidth=.6; //[.3:.05:.7]
 SubdivisionsGapWidth=.3; //[.2:.05:.5]
 
 /* [Export Options] */
@@ -73,6 +73,7 @@ Diaclone = "\u30C0\u30A4\u30A2\u30AF\u30ED\u30F3";
 GIJoe = "GI\u272FJOE\u2261";
 echo(Diaclone);
 
+
 module unitLines(unit, length) {
     uSize = ((unit == "scaleM") ? (1000 * ScalingFactor) :   //if scale then set uSize to scaled
             (unit == "inches" ? 25.4 : 10));
@@ -88,46 +89,66 @@ module unitLines(unit, length) {
         translate([i*uSize-UnitsLineWidth/2,-4.9,0.6]) rotate([8.5,0,0]) cube([UnitsLineWidth,10,.7]);
     }
 }
-
+module makeMetricSubdivision(i, uSize, GapLength) {
+    translate([i*uSize-SubdivisionsGapWidth/2,-4.95,(SVG_export?-2:0.5)])
+    rotate([8.5,0,0])
+    cube([SubdivisionsGapWidth,GapLength,(SVG_export?7:0.7)]);
+}
+module makeImpSubdivision(length) {
+    for (i=[0:length-1]) {
+        translate([(i+0.5)*25.4-SubdivisionsGapWidth/2,-4.95,0.5])
+        rotate([8.5,0,0])
+        cube([SubdivisionsGapWidth,8,.7]);
+            for (j=[0:1]) {
+                translate([(i+0.25+j*0.5)*25.4-SubdivisionsGapWidth/2,-4.95,0.5])
+                rotate([8.5,0,0])
+                cube([SubdivisionsGapWidth,6,.7]);
+            }
+            for (j=[0:3]) {
+                translate([(i+0.125+j*0.25)*25.4-SubdivisionsGapWidth/2,-4.95,0.5])
+                rotate([8.5,0,0])
+                cube([SubdivisionsGapWidth,4.25,.7]);
+            }
+            for (j=[0:7]) {
+                translate([(i+0.0625+j*0.125)*25.4-SubdivisionsGapWidth/2,-4.95,0.5])
+                rotate([8.5,0,0])
+                cube([SubdivisionsGapWidth,2.5,.7]);
+            }
+        }
+}
 module subdivisions(unit, length) {
     //Subdivision lines. These are recessed to improve printability with thicker nozzles.
+    length = length;
     uSize = ((unit == "scaleM") ? (1000 * ScalingFactor) :   
             (unit == "inches" ? 25.4 : 10))/10;
     uLength = ((unit == "scaleM") ? (length / (100 * ScalingFactor)):length); //i.e. 20cm ruler(length) at 1/60 scale is 12m and and has 12 division lines
     uStart = 0;//((uLength<=5)?0.5:(uLength<=25)?1:5);
-    uStep = ((uLength<=5)?0.5:(uLength<=25)?1:(uLength<=150)?5:10);
+    uStep = ((uLength<=5)?0.5:(uLength<=35)?1:(uLength<=150)?5:10);
     uStop = uLength*10;
-    
+
     //echo("unit ", unit, " length ", length, " uLength ", uLength);
     
     if(unit == "centimeters"||unit == "scaleM") {
+        
         for (i=[uStart:uStep:uStop]) {
-            if(i % (SVG_export?0:10)) {
-                GapLength=((i%2)?(
-                                    (i%5)? 5 : 6.5
-                                 ):
-                                    ((i%10)? 3.5 : 10)
-                );
+            if(i % (SVG_export?0:100)) {
                 
-                translate([i*uSize-SubdivisionsGapWidth/2,-4.95,(SVG_export?-2:0.5)])
-                rotate([8.5,0,0])
-                cube([SubdivisionsGapWidth,GapLength,(SVG_export?7:0.7)]);
+                isEven = (i%2)==0;
+                
+                if (isEven) {
+                    GapLength=((i%10)? 3.5 : 10);     //Even subminor length: minor length
+                    makeMetricSubdivision(i, uSize, GapLength);
+
+                }
+                else{
+                    GapLength=((i%5)? 5 : 6.5);        //Odd subminor length: minor length
+                    makeMetricSubdivision(i, uSize, GapLength);
+                }                
             }
         }
     }
     else {
-        for (i=[0:length-1]) {
-            translate([(i+0.5)*25.4-SubdivisionsGapWidth/2,-4.95,0.5]) rotate([8.5,0,0]) cube([SubdivisionsGapWidth,8,.7]);
-            for (j=[0:1]) {
-                translate([(i+0.25+j*0.5)*25.4-SubdivisionsGapWidth/2,-4.95,0.5]) rotate([8.5,0,0]) cube([SubdivisionsGapWidth,6,.7]);
-            }
-            for (j=[0:3]) {
-                translate([(i+0.125+j*0.25)*25.4-SubdivisionsGapWidth/2,-4.95,0.5]) rotate([8.5,0,0]) cube([SubdivisionsGapWidth,4.25,.7]);
-            }
-            for (j=[0:7]) {
-                translate([(i+0.0625+j*0.125)*25.4-SubdivisionsGapWidth/2,-4.95,0.5]) rotate([8.5,0,0]) cube([SubdivisionsGapWidth,2.5,.7]);
-            }
-        }
+        makeImpSubdivision(length);
     }
 }
 
